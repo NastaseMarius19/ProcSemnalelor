@@ -1,13 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import misc, ndimage
 from scipy.fft import dctn, idctn
 from skimage import color
-from scipy.misc import face
-from skimage.metrics import mean_squared_error
+from scipy.datasets import face, ascent
 
 # imagine din scipy
-X = misc.ascent()
+X = ascent()
 
 def afisImagineX():
     plt.imshow(X, cmap=plt.cm.gray)
@@ -127,76 +125,69 @@ def ex2():
 
             x_jpeg = idctn(y_jpeg)
 
-            imagine_ycbcr[i:i+lungime_bloc, j:j+lungime_bloc, 0] = x_jpeg
+            imagine_ycbcr[i:i+lungime_bloc, j:j+lungime_bloc,0] = x_jpeg
 
     # transformam imaginea Y'CbCr inapoi in RGB
     imagine_jpeg_rgb = color.ycbcr2rgb(imagine_ycbcr)
 
     # Afișează rezultatul
-    plt.subplot(121).imshow(imagine_rgb)
+    plt.subplot(121).imshow(imagine_jpeg_rgb)
     plt.title('Original')
-    plt.subplot(122).imshow(imagine_jpeg_rgb)
+    plt.subplot(122).imshow(x_jpeg)
     plt.title('JPEG')
     plt.show()
 
-def compress_image_ex3(imagine_rgb ,mse_ales):
-    imagine_ycbcr = color.rgb2ycbcr(imagine_rgb)
-    linii, coloane, _ = imagine_rgb.shape
 
-    # parametrul initial k
-    k = 120
+def compress_image_ex3(mse_threshold):
+    X_ = ascent()
+    Q_jpeg = [[16, 11, 10, 16, 24, 40, 51, 61],
+              [12, 12, 14, 19, 26, 28, 60, 55],
+              [14, 13, 16, 24, 40, 57, 69, 56],
+              [14, 17, 22, 29, 51, 87, 80, 62],
+              [18, 22, 37, 56, 68, 109, 103, 77],
+              [24, 35, 55, 64, 81, 104, 113, 92],
+              [49, 64, 78, 87, 103, 121, 120, 101],
+              [72, 92, 95, 98, 112, 100, 103, 99]]
+    lungime_bloc = 8
+    linii, coloane = X_.shape
+    X_compressed = np.copy(X_)  # Copiem imaginea originală pentru a nu o modifica
+    mse_current = float('inf')  # Inițializăm MSE cu o valoare mare
 
-    while True:
-        # copiaza imaginea pentru compresie
-        Y_zipped = imagine_ycbcr[:,:,0].copy()
+    # Ajustăm Q_jpeg pentru a îndeplini pragul MSE
+    while mse_current > mse_threshold:
+        for i in range(0, linii, lungime_bloc):
+            for j in range(0, coloane, lungime_bloc):
+                bloc = X[i:i + lungime_bloc, j:j + lungime_bloc]
+                y = dctn(bloc)
+                y_jpeg = Q_jpeg * np.round(y / Q_jpeg)
+                x_jpeg = idctn(y_jpeg)
+                X_compressed[i:i + lungime_bloc, j:j + lungime_bloc] = x_jpeg
 
-        # setam coeficientii DCT peste pragul k la zero
-        Y_zipped[k:] = 0
+        mse_current = np.mean((X- X_compressed) **2)
 
-        # aplicam transformata IDCT
-        imagine_zipped_ycbcr = imagine_ycbcr.copy()
-        imagine_zipped_ycbcr[:,:,0] = idctn(Y_zipped)
+        # Dacă MSE este încă prea mare, mărim Q_jpeg
+        if mse_current > mse_threshold:
+            Q_jpeg += 1
 
-        # Transformă imaginea Y'CbCr înapoi în RGB
-        imagine_zipped_rgb = color.ycbcr2rgb(imagine_zipped_ycbcr)
-
-        # calculam mse
-        mse = mean_squared_error(imagine_rgb, imagine_zipped_rgb)
-
-        # afisam imaginea comprimată
-        plt.imshow(imagine_zipped_rgb)
-        plt.title(f'Compressed Image - k={k} - MSE={mse:.4f}')
-        plt.show()
-
-        if mse < mse_ales:
-            break
-
-        # reducem k pentru a imbunatatii comprimarea
-        k -= 10
-
-        if k < 0:
-            break
-
-    return imagine_zipped_rgb
+    return X_compressed
 
 def ex3():
-    imagine_rgb = face()
     mse_ales = 100
-    imagine_compactata = compress_image_ex3(imagine_rgb,mse_ales)
+    imagine_compactata = compress_image_ex3(mse_ales)
 
     # Afișează imaginea originală și imaginea comprimată
-    plt.subplot(121).imshow(imagine_rgb)
+    plt.subplot(121).imshow(X)
     plt.title('Original Image')
     plt.subplot(122).imshow(imagine_compactata)
     plt.title(f'Compressed Image (MSE < {mse_ales})')
     plt.show()
 
 if __name__ == '__main__':
-    # afisImagineX()
-    # transformataDCT()
-    # compactareImagine()
-    # JPEG()
-    # q_jpeg()
-    # ex1()
-    # ex2()
+    #afisImagineX()
+    #transformataDCT()
+    #compactareImagine()
+    #JPEG()
+    #q_jpeg()
+    #ex1()
+    #ex2()
     ex3()
